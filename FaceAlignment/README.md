@@ -33,6 +33,8 @@ As for speed, it takes about 5 milliseconds per face to predict the 5 facial poi
 5. Define `SEETA_EXPORTS` macro: (Project) Properities -> Configuration Properties -> C/C++ -> Preprocessor -> Preprocessor Definitions.
 6. Build.
 
+**A Visual Studio 2013 solution is provided in the subdirectory [examples](./examples).**
+
 ### Build in Linux
 
 ``` 
@@ -49,8 +51,10 @@ make
 If everything goes fine, move on to test the program. Note: you should copy the face detetion model [seeta_fd_frontal_v1.0.bin](../FaceDetection/model/seeta_fd_frontal_v1.0.bin) to the directory "build" before testing.
 
 ```
-./fa_test
+cd ..
+./build/fa_test
 ``` 
+The alignment results are stored in "result.jpg".
 
 ### How to run SeetaFace Alignment
 
