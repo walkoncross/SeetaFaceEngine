@@ -16,6 +16,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.1")
 
 include_directories(include)
+include_directories(../FaceDetection/include)
 
 set(src_files 
     src/cfan.cpp
@@ -37,5 +38,13 @@ if (BUILD_EXAMPLES)
         list(APPEND fa_required_libs ${OpenCV_LIBS} seeta_facedet_lib)
         add_executable(fa_test src/test/face_alignment_test.cpp)
         target_link_libraries(fa_test ${fa_required_libs})
+		
+		# added by zhaoyafei 20170901
+		add_executable(fa_test_img_list src/test_img_list/face_alignment_test_list.cpp)
+        target_link_libraries(fa_test_img_list ${fa_required_libs})		
+		
+		add_executable(fa_test_lfw src/test_lfw/face_alignment_test_lfw.cpp)
+        target_link_libraries(fa_test_lfw ${fa_required_libs})
+		
     endif()
 endif()

@@ -40,25 +40,44 @@
 #include "face_detection.h"
 #include "face_alignment.h"
 
+#define SHOW_IMAGE
+
+//#ifdef _WIN32
+//std::string DATA_DIR = "../data/";
+//std::string MODEL_DIR = "../model/";
+////std::string DATA_DIR = "../../data/";
+////std::string MODEL_DIR = "../../model/";
+//#else
+//std::string DATA_DIR = "./data/";
+//std::string MODEL_DIR = "./model/";
+//#endif
+
+
 #ifdef _WIN32
-std::string DATA_DIR = "../../data/";
-std::string MODEL_DIR = "../../model/";
+std::string seeta_root_dir = "../../";
 #else
-std::string DATA_DIR = "./data/";
-std::string MODEL_DIR = "./model/";
+std::string seeta_root_dir = "../../";
 #endif
+
+std::string DATA_DIR = seeta_root_dir + "FaceAlignment/data/";
+std::string MODEL_DIR = seeta_root_dir + "FaceAlignment/model/";
+
+std::string fd_model = seeta_root_dir + "FaceDetection/model/seeta_fd_frontal_v1.0.bin";
+std::string fa_model = MODEL_DIR + "seeta_fa_v1.1.bin";
 
 int main(int argc, char** argv)
 {
+
+	
   // Initialize face detection model
-  seeta::FaceDetection detector("../../../FaceDetection/model/seeta_fd_frontal_v1.0.bin");
+  seeta::FaceDetection detector(fd_model.c_str());
   detector.SetMinFaceSize(40);
   detector.SetScoreThresh(2.f);
   detector.SetImagePyramidScaleFactor(0.8f);
   detector.SetWindowStep(4, 4);
 
   // Initialize face alignment model 
-  seeta::FaceAlignment point_detector((MODEL_DIR + "seeta_fa_v1.1.bin").c_str());
+  seeta::FaceAlignment point_detector(fa_model.c_str());
 
   //load image
   IplImage *img_grayscale = NULL;
@@ -102,7 +121,13 @@ int main(int argc, char** argv)
 
   // Detect 5 facial landmarks
   seeta::FacialLandmark points[5];
+
+  long t0 = cv::getTickCount();
   point_detector.PointDetectLandmarks(image_data, faces[0], points);
+  long t1 = cv::getTickCount();
+  double secs = (t1 - t0) / cv::getTickFrequency();
+
+  std::cout << "Facial Points Detections takes " << secs << " seconds " << std::endl;
 
   // Visualize the results
   cvRectangle(img_color, cvPoint(faces[0].bbox.x, faces[0].bbox.y), cvPoint(faces[0].bbox.x + faces[0].bbox.width - 1, faces[0].bbox.y + faces[0].bbox.height - 1), CV_RGB(255, 0, 0));
@@ -112,9 +137,18 @@ int main(int argc, char** argv)
   }
   cvSaveImage("result.jpg", img_color);
 
+#ifdef SHOW_IMAGE
+  char win_name[] = "image";
+  cvNamedWindow(win_name);
+  cvShowImage(win_name, img_color);
+  char key = cvWaitKey(0);
+  cvDestroyAllWindows();
+#endif
+
   // Release memory
   cvReleaseImage(&img_color);
   cvReleaseImage(&img_grayscale);
   delete[]data;
+
   return 0;
 }
