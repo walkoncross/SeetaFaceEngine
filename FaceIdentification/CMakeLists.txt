@@ -21,6 +21,9 @@ set(VIPLNET_SRC_DIR ${PROJECT_SOURCE_DIR}/src)
 # set __VIOL_LOG__ macro
 # add_definitions(-D__VIPL_LOG__)
 
+include_directories(../FaceDetection/include)
+include_directories(../FaceAlignment/include)
+
 include_directories(${VIPLNET_INCLUDE_DIR})
 include_directories(${VIPLNET_SRC_DIR})
 
