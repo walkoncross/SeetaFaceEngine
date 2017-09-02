@@ -73,13 +73,13 @@ void pring_usage()
 int main(int argc, char** argv)
 {
 	string image_root_dir = "";
-	string lfw_list_fn = "./lfw_list_mtcnn.txt";
+	string fn_lfw_list = "./lfw_list_mtcnn.txt";
 
 	pring_usage();
 
 	if (argc > 1)
 	{
-		lfw_list_fn = argv[1];
+		fn_lfw_list = argv[1];
 	}
 
 	if (argc > 2)
@@ -92,7 +92,7 @@ int main(int argc, char** argv)
 
 	cout << "=============="<< endl;
 	
-	cout << "Image list file: " << lfw_list_fn << endl;
+	cout << "Image list file: " << fn_lfw_list << endl;
 	cout << "Image root dir: " << image_root_dir << endl;
 
 	// Initialize face detection model
@@ -105,10 +105,17 @@ int main(int argc, char** argv)
 	// Initialize face alignment model 
 	seeta::FaceAlignment point_detector(fa_model.c_str());
 
-	fstream list_fs(lfw_list_fn);
+	fstream list_fs(fn_lfw_list);
 	string img_fn;
   
 	string line;
+
+	int cnt_fd = 0;
+	int cnt_fa = 0;
+
+
+	double fd_time_ttl = 0.0f;
+	double fa_time_ttl = 0.0f;
 
 	while (getline(list_fs, line))
 	{
@@ -159,7 +166,16 @@ int main(int argc, char** argv)
 		image_data.num_channels = 1;
 
 		// Detect faces
+		long t0 = cv::getTickCount();
 		vector<seeta::FaceInfo> faces = detector.Detect(image_data);
+		long t1 = cv::getTickCount();
+		double secs = (t1 - t0) / cv::getTickFrequency();
+
+		cnt_fd += 1;
+		fd_time_ttl += secs;
+
+		std::cout << "Face Detections takes " << secs << " seconds " << std::endl;
+
 		int32_t face_num = static_cast<int32_t>(faces.size());
 
 		if (face_num == 0)
@@ -172,8 +188,13 @@ int main(int argc, char** argv)
 
 		// Detect 5 facial landmarks
 		seeta::FacialLandmark points[5];
+		t0 = cv::getTickCount();
 		point_detector.PointDetectLandmarks(image_data, faces[0], points);
+		t1 = cv::getTickCount();
+		secs = (t1 - t0) / cv::getTickFrequency();
 
+		cnt_fa += 1;
+		fa_time_ttl += secs;
 		// Visualize the results
 		cvRectangle(img_color, cvPoint(faces[0].bbox.x, faces[0].bbox.y), cvPoint(faces[0].bbox.x + faces[0].bbox.width - 1, faces[0].bbox.y + faces[0].bbox.height - 1), CV_RGB(255, 0, 0));
 		for (int i = 0; i < pts_num; i++)
@@ -208,5 +229,10 @@ int main(int argc, char** argv)
 	cvDestroyAllWindows();
 #endif
 
+	cout << "FD processed " << cnt_fd << " images, takes " << fd_time_ttl << " secs, avg time: " << fd_time_ttl / cnt_fd << "sec/image" << endl;
+	cout << "FA processed " << cnt_fa << " faces, takes " << fa_time_ttl << " secs, avg time: " << fa_time_ttl / cnt_fa << "sec/image" << endl;
+
+	fs_log << "FD processed " << cnt_fd << " images, takes " << fd_time_ttl << " secs, avg time: " << fd_time_ttl / cnt_fd << "sec/image" << endl;
+	fs_log << "FA processed " << cnt_fa << " faces, takes " << fa_time_ttl << " secs, avg time: " << fa_time_ttl / cnt_fa << "sec/image" << endl;
 	return 0;
 }

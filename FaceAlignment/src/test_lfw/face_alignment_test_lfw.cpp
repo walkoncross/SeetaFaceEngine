@@ -42,7 +42,8 @@
 
 using namespace std;
 
-#define SHOW_IMAGE
+//#define SAVE_IMAGE
+//#define SHOW_IMAGE
 
 //#ifdef _WIN32
 //string MODEL_DIR = "../model/";
@@ -95,18 +96,42 @@ float calc_overlap_iou(seeta::Rect &r1, seeta::Rect &r2)
 	}	
 }
 
+char json_str[1024];
+char json_tmpl[] = 
+"{\n"
+"  \"face_count\": 1,\n"
+"  \"message\" : \"success\",\n"
+"  \"faces\" : [\n"
+"    {\n"
+"      \"score\": %5.3f,\n"
+"      \"pts\" : [%5.3f, %5.3f, %5.3f, %5.3f, %5.3f, %5.3f, %5.3f, %5.3f, %5.3f, %5.3f],\n"
+"      \"rect\": [%d, %d, %d, %d]\n"
+"    }\n"
+"   ],\n"
+"  \"id\": \"%d\", \n"
+"  \"filename\" : \"%s\"\n"
+"}";
+
+
 int main(int argc, char** argv)
 {
-
-
 	string image_root_dir = "";
-	string lfw_list_fn = "./lfw_list_mtcnn.txt";
+	string fn_lfw_list = "./lfw_list_mtcnn.txt";
 
+	string fn_rlt = "./lfw_seeta_fd_rlt.json";
+	ofstream fs_rlt(fn_rlt);
+
+	string fn_log = "./lfw_seeta_fd_log.txt";
+	ofstream fs_log(fn_log);
+
+	int first_flag = 1;
+	fs_rlt << '[' << endl;
+	
 	pring_usage();
 
 	if (argc > 1)
 	{
-		lfw_list_fn = argv[1];
+		fn_lfw_list = argv[1];
 	}
 
 	if (argc > 2)
@@ -119,7 +144,7 @@ int main(int argc, char** argv)
 
 	cout << "=============="<< endl;
 	
-	cout << "Image list file: " << lfw_list_fn << endl;
+	cout << "Image list file: " << fn_lfw_list << endl;
 	cout << "Image root dir: " << image_root_dir << endl;
 
 	// Initialize face detection model
@@ -132,11 +157,20 @@ int main(int argc, char** argv)
 	// Initialize face alignment model 
 	seeta::FaceAlignment point_detector(fa_model.c_str());
 
-	fstream list_fs(lfw_list_fn);
+	fstream list_fs(fn_lfw_list);
 	string img_fn;
 	int id;
   
 	string line;
+
+	int cnt_fd = 0;
+	int cnt_fa = 0;
+
+	int cnt_missed_1 = 0;
+	int cnt_missed_2 = 0;
+
+	double fd_time_ttl = 0.0f;
+	double fa_time_ttl = 0.0f;
 
 	while (getline(list_fs, line))
 	{
@@ -150,6 +184,15 @@ int main(int argc, char** argv)
 		if (!(iss >> img_fn >> id))
 		{
 			continue;
+		}
+
+		if (first_flag)
+		{
+			first_flag = 0;
+		}
+		else
+		{
+			fs_rlt << "," << endl;
 		}
 
 		//load image
@@ -187,10 +230,20 @@ int main(int argc, char** argv)
 		image_data.num_channels = 1;
 
 		// Detect faces
+		long t0 = cv::getTickCount();
 		vector<seeta::FaceInfo> faces = detector.Detect(image_data);
+		long t1 = cv::getTickCount();
+		double secs = (t1 - t0) / cv::getTickFrequency();
+
+		cnt_fd += 1;
+		fd_time_ttl += secs;
+
+		std::cout << "Face Detections takes " << secs << " seconds " << std::endl;
+
 		int32_t face_num = static_cast<int32_t>(faces.size());
 
 		seeta::Rect bbox = LFW_GT_RECT;
+		double score = 100.0f;
 
 		if (face_num > 0)
 		{
@@ -214,15 +267,25 @@ int main(int argc, char** argv)
 			if (best_iou > GT_IOU_THRESH)
 			{
 				bbox = faces[best_idx].bbox;
+				score = faces[best_idx].score;
 			}
 			else
 			{
 				cout << "But none of them has IOU>" << GT_IOU_THRESH << " with GT rect" << endl;
+			
+				cnt_missed_2 += 1;
+
+				fs_log << img_fn << endl;
+				fs_log << "But none of them has IOU>" << GT_IOU_THRESH << " with GT rect" << endl;
 			}
 		}
 		else
 		{
 			cout << "No faces detected, use default GT rect" << endl;
+
+			cnt_missed_1 += 1;
+			fs_log << img_fn << endl;
+			fs_log << "No faces detected, use default GT rect" << endl;
 		}
 
 		// Detect 5 facial landmarks
@@ -230,22 +293,45 @@ int main(int argc, char** argv)
 		seeta::FaceInfo face;
 		face.bbox = bbox;
 
+		t0 = cv::getTickCount();
 		point_detector.PointDetectLandmarks(image_data, face, points);
+		t1 = cv::getTickCount();
+		secs = (t1 - t0) / cv::getTickFrequency();
 
+		cnt_fa += 1;
+		fa_time_ttl += secs;
+		
+		std::cout << "Facial Points Detections takes " << secs << " seconds " << std::endl;
+
+#if defined(SAVE_IMAGE) || defined(SHOW_IMAGE)
 		// Visualize the results
 		cvRectangle(img_color, cvPoint(bbox.x, bbox.y), cvPoint(bbox.x + bbox.width - 1, bbox.y + bbox.height - 1), CV_RGB(255, 0, 0));
 		for (int i = 0; i < pts_num; i++)
 		{
 			cvCircle(img_color, cvPoint(points[i].x, points[i].y), 2, CV_RGB(0, 255, 0), CV_FILLED);
 		}
+#endif
 
-	#ifdef SHOW_IMAGE
+#ifdef SHOW_IMAGE
 		char win_name[] = "image";
 		cvNamedWindow(win_name);
 		cvShowImage(win_name, img_color);
 		char key = cvWaitKey(0);
-	#endif
+#endif
 
+		sprintf(json_str, json_tmpl,
+			score,
+			points[0].x, points[0].y,
+			points[1].x, points[1].y,
+			points[2].x, points[2].y,
+			points[3].x, points[3].y,
+			points[4].x, points[4].y,
+			bbox.x, bbox.y, bbox.height, bbox.height,
+			id,
+			img_fn.c_str()
+			);
+		fs_rlt << json_str;
+		
 		//cvSaveImage("result.jpg", img_color);
 
 		// Release memory
@@ -253,18 +339,34 @@ int main(int argc, char** argv)
 		cvReleaseImage(&img_grayscale);
 		delete[]data;
 
-	#ifdef SHOW_IMAGE
+#ifdef SHOW_IMAGE
 
 		if (key == 'q' || key == 'Q')
 		{
 			break;
 		}
-	#endif
+#endif
 	}
 
 #ifdef SHOW_IMAGE
 	cvDestroyAllWindows();
 #endif
+
+	fs_rlt << "]\n" << endl;
+
+	cout << "FD processed " << cnt_fd << " images, takes " << fd_time_ttl << " secs, avg time: " << fd_time_ttl / cnt_fd << "sec/image" << endl;
+	cout << "FA processed " << cnt_fa << " faces, takes " << fa_time_ttl << " secs, avg time: " << fa_time_ttl / cnt_fa << "sec/image" << endl;
+
+	cout << cnt_missed_1 << "GT faces missed because no faces detected" << endl;
+	cout << cnt_missed_2 << "GT faces missed because low IOU with GT rect" << endl;
+	cout << cnt_missed_1 + cnt_missed_2 << "GT faces missed in total" << endl;
+
+	fs_log << "FD processed " << cnt_fd << " images, takes " << fd_time_ttl << " secs, avg time: " << fd_time_ttl / cnt_fd << "sec/image" << endl;
+	fs_log << "FA processed " << cnt_fa << " faces, takes " << fa_time_ttl << " secs, avg time: " << fa_time_ttl / cnt_fa << "sec/image" << endl;
+
+	fs_log << cnt_missed_1 << " GT faces missed because no faces detected" << endl;
+	fs_log << cnt_missed_2 << " GT faces missed because low IOU with GT rect" << endl;
+	fs_log << cnt_missed_1 + cnt_missed_2 << " GT faces missed in total" << endl;
 
 	return 0;
 }
