@@ -326,7 +326,7 @@ int main(int argc, char** argv)
 			points[2].x, points[2].y,
 			points[3].x, points[3].y,
 			points[4].x, points[4].y,
-			bbox.x, bbox.y, bbox.height, bbox.height,
+			bbox.x, bbox.y, bbox.width, bbox.height,
 			id,
 			img_fn.c_str()
 			);
