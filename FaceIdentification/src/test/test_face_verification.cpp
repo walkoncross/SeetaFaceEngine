@@ -39,15 +39,15 @@ using namespace std;
 #define CV_VERSION_ID CVAUX_STR(CV_MAJOR_VERSION) CVAUX_STR(CV_MINOR_VERSION) \
   CVAUX_STR(CV_SUBMINOR_VERSION)
 
-#ifdef _DEBUG
-#define cvLIB(name) "opencv_" name CV_VERSION_ID "d"
-#else
-#define cvLIB(name) "opencv_" name CV_VERSION_ID
-#endif //_DEBUG
-
-#pragma comment( lib, cvLIB("core") )
-#pragma comment( lib, cvLIB("imgproc") )
-#pragma comment( lib, cvLIB("highgui") )
+//#ifdef _DEBUG
+//#define cvLIB(name) "opencv_" name CV_VERSION_ID "d"
+//#else
+//#define cvLIB(name) "opencv_" name CV_VERSION_ID
+//#endif //_DEBUG
+//
+//#pragma comment( lib, cvLIB("core") )
+//#pragma comment( lib, cvLIB("imgproc") )
+//#pragma comment( lib, cvLIB("highgui") )
 
 #endif //_WIN32
 
@@ -61,8 +61,14 @@ using namespace std;
 
 #endif //__unix
 
-#include <opencv/cv.h>
-#include <opencv/highgui.h>
+//#include <opencv/cv.h>
+//#include <opencv/highgui.h>
+//
+//added by zhaoyafei 20170902
+#include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+
 #include "face_identification.h"
 #include "recognizer.h"
 #include "face_detection.h"
