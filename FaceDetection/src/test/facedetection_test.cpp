@@ -39,6 +39,9 @@
 
 #include "face_detection.h"
 
+#define SAVE_RLT_IMG
+//#define LOOP_TEST
+
 using namespace std;
 
 int main(int argc, char** argv) {
@@ -74,9 +77,32 @@ int main(int argc, char** argv) {
   long t0 = cv::getTickCount();
   std::vector<seeta::FaceInfo> faces = detector.Detect(img_data);
   long t1 = cv::getTickCount();
-  double secs = (t1 - t0)/cv::getTickFrequency();
+  double secs = (t1 - t0) / cv::getTickFrequency();
 
   cout << "Detections takes " << secs << " seconds " << endl;
+
+#ifdef LOOP_TEST
+  double ttl_secs = 0.0;
+  int test_cnts = 100;
+
+  std::vector<seeta::FaceInfo> faces;
+
+  for (int i=0; i<test_cnts; i++)
+  {
+	  long t0 = cv::getTickCount();
+	  faces.clear();
+	  faces = detector.Detect(img_data);
+	  long t1 = cv::getTickCount();
+	  double secs = (t1 - t0)/cv::getTickFrequency();
+
+	  cout << "Detections takes " << secs << " seconds " << endl;
+
+	  ttl_secs += secs;
+  }
+
+  cout << "Looping test for " << test_cnts << " times, average processing time is " << ttl_secs / test_cnts << "seconds" << endl;
+#endif
+
 #ifdef USE_OPENMP
   cout << "OpenMP is used." << endl;
 #else
@@ -108,4 +134,8 @@ int main(int argc, char** argv) {
   cv::imshow("Test", img);
   cv::waitKey(0);
   cv::destroyAllWindows();
+
+#ifdef SAVE_RLT_IMG
+  cv::imwrite("fd_rlt.jpg", img);
+#endif
 }
