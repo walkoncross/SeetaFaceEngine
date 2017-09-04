@@ -139,6 +139,11 @@ int main(int argc, char** argv)
 		image_root_dir = argv[2];
 	}
 
+	if (image_root_dir.size() > 0)
+	{
+		image_root_dir = image_root_dir + '/';
+	}
+
 	cout << "face detection model: " << fd_model << endl;
 	cout << "face alignment model: " << fa_model << endl;
 
@@ -197,7 +202,7 @@ int main(int argc, char** argv)
 
 		//load image
 		IplImage *img_grayscale = NULL;
-		string full_img_path = image_root_dir + "/" + img_fn;
+		string full_img_path = image_root_dir + img_fn;
 
 		cout << "Processing image: " << full_img_path << " with id: " << id << endl;
 

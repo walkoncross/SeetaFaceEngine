@@ -43,6 +43,20 @@
 using namespace std;
 
 #define SHOW_IMAGE
+#define SAVE_IMAGE
+
+#ifdef SAVE_IMAGE
+string save_dir = "./fd_list_rlt";
+
+#ifdef WIN32
+#include <direct.h>
+//#define mkdir(path) _mkdir(path)
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#define _mkdir(path) mkdir(path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
+#endif
+#endif
 
 //#ifdef _WIN32
 //string MODEL_DIR = "../model/";
@@ -73,9 +87,15 @@ void pring_usage()
 int main(int argc, char** argv)
 {
 	string image_root_dir = "";
-	string fn_lfw_list = "./lfw_list_mtcnn.txt";
+	string fn_lfw_list = "./list_img.txt";
 
+	string fn_log = "./seeta_fd_list_log.txt";
+	ofstream fs_log(fn_log);
 	pring_usage();
+
+#ifdef SAVE_IMAGE
+	mkdir(save_dir.c_str());
+#endif
 
 	if (argc > 1)
 	{
@@ -85,6 +105,11 @@ int main(int argc, char** argv)
 	if (argc > 2)
 	{
 		image_root_dir = argv[2];
+	}
+
+	if (image_root_dir.size() > 0)
+	{
+		image_root_dir = image_root_dir + '/';
 	}
 
 	cout << "face detection model: " << fd_model << endl;
@@ -133,9 +158,10 @@ int main(int argc, char** argv)
 
 		//load image
 		IplImage *img_grayscale = NULL;
-		string full_img_path = image_root_dir + "/" + img_fn;
+		string full_img_path = image_root_dir + img_fn;
 
-		cout << "Processing image: " << full_img_path << endl;
+		cout << "\n===> Processing image: " << full_img_path << endl;
+		fs_log << "\n===> Processing image: " << full_img_path << endl;
 
 		img_grayscale = cvLoadImage(full_img_path.c_str(), 0);
 		if (img_grayscale == NULL)
@@ -174,55 +200,86 @@ int main(int argc, char** argv)
 		cnt_fd += 1;
 		fd_time_ttl += secs;
 
-		std::cout << "Face Detections takes " << secs << " seconds " << std::endl;
+		cout << "Face Detections takes " << secs << " seconds " << endl;
+		fs_log << "Face Detections takes " << secs << " seconds " << endl;
 
 		int32_t face_num = static_cast<int32_t>(faces.size());
+
+		cout << face_num << " faces detected " << endl;
+		fs_log << face_num << " faces detected " << endl;
 
 		if (face_num == 0)
 		{
 			delete[]data;
 			cvReleaseImage(&img_grayscale);
 			cvReleaseImage(&img_color);
-			return 0;
+			continue;
 		}
 
-		// Detect 5 facial landmarks
-		seeta::FacialLandmark points[5];
-		t0 = cv::getTickCount();
-		point_detector.PointDetectLandmarks(image_data, faces[0], points);
-		t1 = cv::getTickCount();
-		secs = (t1 - t0) / cv::getTickFrequency();
-
-		cnt_fa += 1;
-		fa_time_ttl += secs;
-		// Visualize the results
-		cvRectangle(img_color, cvPoint(faces[0].bbox.x, faces[0].bbox.y), cvPoint(faces[0].bbox.x + faces[0].bbox.width - 1, faces[0].bbox.y + faces[0].bbox.height - 1), CV_RGB(255, 0, 0));
-		for (int i = 0; i < pts_num; i++)
+		for (int j=0; j<face_num; j++)
 		{
-			cvCircle(img_color, cvPoint(points[i].x, points[i].y), 2, CV_RGB(0, 255, 0), CV_FILLED);
-		}
+			printf("Face Info:\n");
+			printf("--> score: %5.2f\n", faces[j].score);
+			printf("--> bbox (x,y,w,h): (%d, %d, %d, %d)\n", faces[j].bbox.x, faces[j].bbox.y, faces[j].bbox.width, faces[j].bbox.height);
+			printf("--> pose (yaw, roll, pitch): (%5.2f, %5.2f, %5.2f)\n", faces[j].yaw, faces[j].roll, faces[j].pitch);
+			printf("--> facial points:\n");
 
-	#ifdef SHOW_IMAGE
+			// Detect 5 facial landmarks
+			seeta::FacialLandmark points[5];
+			t0 = cv::getTickCount();
+			point_detector.PointDetectLandmarks(image_data, faces[j], points);
+			t1 = cv::getTickCount();
+			secs = (t1 - t0) / cv::getTickFrequency();
+
+			cout << "Facial Points Detections takes " << secs << " seconds " << endl;
+			fs_log << "Facial Points Detections takes " << secs << " seconds " << endl;
+
+			cnt_fa += 1;
+			fa_time_ttl += secs;
+
+#if defined(SHOW_IMAGE) || defined(SAVE_IMAGE)
+			// Visualize the results
+			cvRectangle(img_color, cvPoint(faces[j].bbox.x, faces[j].bbox.y), cvPoint(faces[j].bbox.x + faces[j].bbox.width - 1, faces[j].bbox.y + faces[j].bbox.height - 1), CV_RGB(255, 0, 0));
+			for (int i = 0; i < pts_num; i++)
+			{
+				cvCircle(img_color, cvPoint(points[i].x, points[i].y), 2, CV_RGB(0, 255, 0), CV_FILLED);
+			}
+		}
+#endif
+
+#ifdef SHOW_IMAGE
 		char win_name[] = "image";
-		cvNamedWindow(win_name);
+		cvNamedWindow(win_name, CV_WINDOW_AUTOSIZE);
 		cvShowImage(win_name, img_color);
 		char key = cvWaitKey(0);
-	#endif
+#endif
 
-		//cvSaveImage("result.jpg", img_color);
+#ifdef SAVE_IMAGE
+		int p1 = img_fn.rfind('/');
+		int p2 = img_fn.rfind('\\');
+
+		p1 = (p1 > p2) ? p1 : p2;
+		
+		string save_name = save_dir + '/' + img_fn.substr(p1);
+
+		cout << "Save rlt image into " << save_name << endl;
+		fs_log << "Save rlt image into " << save_name << endl;
+
+		cvSaveImage(save_name.c_str(), img_color);
+#endif
 
 		// Release memory
 		cvReleaseImage(&img_color);
 		cvReleaseImage(&img_grayscale);
 		delete[]data;
 
-	#ifdef SHOW_IMAGE
+#ifdef SHOW_IMAGE
 
 		if (key == 'q' || key == 'Q')
 		{
 			break;
 		}
-	#endif
+#endif
 	}
 
 #ifdef SHOW_IMAGE
@@ -234,5 +291,6 @@ int main(int argc, char** argv)
 
 	fs_log << "FD processed " << cnt_fd << " images, takes " << fd_time_ttl << " secs, avg time: " << fd_time_ttl / cnt_fd << "sec/image" << endl;
 	fs_log << "FA processed " << cnt_fa << " faces, takes " << fa_time_ttl << " secs, avg time: " << fa_time_ttl / cnt_fa << "sec/image" << endl;
+
 	return 0;
 }

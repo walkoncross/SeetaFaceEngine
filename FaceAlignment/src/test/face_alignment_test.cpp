@@ -108,9 +108,14 @@ int main(int argc, char** argv)
   image_data.num_channels = 1;
 
   // Detect faces
+  long t0 = cv::getTickCount();
   std::vector<seeta::FaceInfo> faces = detector.Detect(image_data);
   int32_t face_num = static_cast<int32_t>(faces.size());
+  long t1 = cv::getTickCount();
+  double secs = (t1 - t0) / cv::getTickFrequency();
 
+  std::cout << "Face Detections takes " << secs << " seconds " << std::endl;
+  
   if (face_num == 0)
   {
     delete[]data;
@@ -122,17 +127,24 @@ int main(int argc, char** argv)
   // Detect 5 facial landmarks
   seeta::FacialLandmark points[5];
 
-  long t0 = cv::getTickCount();
+  t0 = cv::getTickCount();
   point_detector.PointDetectLandmarks(image_data, faces[0], points);
-  long t1 = cv::getTickCount();
-  double secs = (t1 - t0) / cv::getTickFrequency();
+  t1 = cv::getTickCount();
+  secs = (t1 - t0) / cv::getTickFrequency();
 
   std::cout << "Facial Points Detections takes " << secs << " seconds " << std::endl;
 
+  printf("Face Info:\n");
+  printf("--> score: %5.2f\n", faces[0].score);
+  printf("--> bbox (x,y,w,h): (%d, %d, %d, %d)\n", faces[0].bbox.x, faces[0].bbox.y, faces[0].bbox.width, faces[0].bbox.height);
+  printf("--> pose (yaw, roll, pitch): (%5.2f, %5.2f, %5.2f)\n", faces[0].yaw, faces[0].roll, faces[0].pitch);
+  printf("--> facial points:\n");
+  
   // Visualize the results
   cvRectangle(img_color, cvPoint(faces[0].bbox.x, faces[0].bbox.y), cvPoint(faces[0].bbox.x + faces[0].bbox.width - 1, faces[0].bbox.y + faces[0].bbox.height - 1), CV_RGB(255, 0, 0));
   for (int i = 0; i<pts_num; i++)
   {
+	printf("\t\t(%5.2f, %5.2f)\n", points[i].x, points[i].y);
     cvCircle(img_color, cvPoint(points[i].x, points[i].y), 2, CV_RGB(0, 255, 0), CV_FILLED);
   }
   cvSaveImage("result.jpg", img_color);
